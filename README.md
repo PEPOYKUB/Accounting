@@ -18,6 +18,7 @@
 | [docs/user-manual.md](docs/user-manual.md) | **คู่มือการใช้งาน** สำหรับผู้ใช้ประจำวัน |
 | [docs/accountant-export.md](docs/accountant-export.md) | **ส่งข้อมูลให้สำนักงานบัญชี** — ไฟล์ Excel/CSV และซิงก์ Google Sheets |
 | [docs/demo-guide.md](docs/demo-guide.md) | **คู่มือชุดสาธิต** สำหรับส่งให้ลูกค้าตรวจสอบ |
+| [docs/delivery-package.md](docs/delivery-package.md) | **ชุดส่งมอบลูกค้า** — วิธีสร้าง `Accounting-Setup` ใหม่ และสิ่งที่ต้องบอกลูกค้า |
 | [share.ps1](share.ps1) | สคริปต์แสดงลิงก์สำหรับแชร์ และเปิด/ปิดพอร์ตในไฟร์วอลล์ |
 
 ---
