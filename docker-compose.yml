@@ -1,0 +1,75 @@
+# ระบบบัญชี — ชุดใช้งานจริง (ฐานข้อมูลเปล่า ไม่มีข้อมูลตัวอย่าง)
+#
+#   docker compose up -d --build     เปิดระบบ
+#   เปิดเบราว์เซอร์ที่ http://localhost:3100
+#   ครั้งแรกระบบจะพาไปหน้าติดตั้ง ให้ตั้งข้อมูลกิจการและผู้ดูแลระบบคนแรก
+#
+#   docker compose logs -f web       ดูบันทึกการทำงาน
+#   docker compose down              ปิด (ข้อมูลยังอยู่)
+#   docker compose down -v           ปิดและล้างข้อมูลทั้งหมด เริ่มติดตั้งใหม่
+#
+# อยากได้ชุดสาธิตที่มีข้อมูลตัวอย่างพร้อมผู้ใช้ทดลอง ใช้คำสั่งนี้แทน
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+#
+# ─────────────────────────────────────────────────────────────────────
+# ก่อนใช้กับข้อมูลจริง อ่าน docs/production-checklist.md ให้ครบ
+# สรุปสั้น: เปลี่ยนรหัสผ่านฐานข้อมูล · ให้บริการผ่าน HTTPS · วางแผนสำรองข้อมูล
+# ─────────────────────────────────────────────────────────────────────
+
+services:
+  db:
+    image: postgres:16
+    container_name: accounting-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      # เปลี่ยนรหัสผ่านนี้ก่อนใช้งานจริง และแก้ DATABASE_URL ของ web ให้ตรงกัน
+      POSTGRES_PASSWORD: accounting
+      POSTGRES_DB: accounting
+      TZ: Asia/Bangkok
+      LANG: C.UTF-8
+    ports:
+      # ผูกกับ 127.0.0.1 เท่านั้น ฐานข้อมูลจึงไม่เปิดออกสู่เครือข่าย
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - accounting-data:/var/lib/postgresql/data
+      # ติดตั้งโครงสร้างและผังบัญชีอัตโนมัติ เฉพาะครั้งแรกที่สร้างฐานข้อมูล
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./db/seed_chart_of_accounts.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+      - ./db/auth.sql:/docker-entrypoint-initdb.d/03_auth.sql:ro
+      - ./db/exports.sql:/docker-entrypoint-initdb.d/04_exports.sql:ro
+      # เมานต์ทั้งโฟลเดอร์ไว้ให้เรียกไฟล์อื่นภายหลังได้ เช่น tests.sql
+      - ./db:/sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d accounting"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  web:
+    build:
+      context: ./web
+      args:
+        # ใส่โดเมนเมื่อเปิดผ่าน tunnel หรือ reverse proxy เช่น "acc.example.com"
+        # ค่านี้ฝังตอน build จึงต้องสั่ง --build ใหม่ทุกครั้งที่แก้
+        ALLOWED_ORIGINS: ""
+    container_name: accounting-web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://postgres:accounting@db:5432/accounting
+      TZ: Asia/Bangkok
+      # ไม่แสดงรายชื่อบัญชีทดลองในหน้าเข้าสู่ระบบ
+      DEMO_MODE: "false"
+      # auto = ใช้คุกกี้แบบ secure เฉพาะเมื่อเปิดผ่าน HTTPS จริง
+      # ถ้าบังคับ true แล้วเปิดผ่าน http ธรรมดา จะล็อกอินไม่ได้
+      SESSION_COOKIE_SECURE: "auto"
+    ports:
+      # 0.0.0.0 = เครื่องอื่นในเครือข่ายเข้าถึงได้
+      # เปลี่ยนเป็น "127.0.0.1:3100:3100" ถ้าต้องการให้เปิดได้เฉพาะเครื่องนี้
+      - "0.0.0.0:3100:3100"
+
+volumes:
+  accounting-data:

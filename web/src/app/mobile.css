@@ -1,0 +1,371 @@
+/* =====================================================================
+   มือถือ — ออกแบบใหม่ทั้งชุด ไม่ใช่แค่ย่อหน้าจอ
+   ลูกค้ากลุ่มหลักใช้โทรศัพท์ จึงถือว่าจอเล็กคือกรณีปกติ ไม่ใช่ข้อยกเว้น
+   ===================================================================== */
+
+.mobile-only { display: none; }
+.drawer-backdrop { display: none; }
+.tabbar { display: none; }
+.burger { display: none; }
+
+@media (max-width: 900px) {
+  html, body { font-size: 15px; }
+
+  .mobile-only { display: initial; }
+  .desktop-only { display: none !important; }
+
+  /* ---------- โครงหน้า: ซ่อนแถบข้าง เปลี่ยนเป็นลิ้นชักเลื่อนออก ---------- */
+  .shell { display: block; }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 270px;
+    max-width: 84vw;
+    height: 100dvh;
+    z-index: 60;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    padding-bottom: 24px;
+  }
+  .sidebar.open { transform: translateX(0); }
+
+  .drawer-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 55;
+    animation: acc-fade-in 0.18s ease;
+    border: none;
+    padding: 0;
+  }
+  @keyframes acc-fade-in { from { opacity: 0 } to { opacity: 1 } }
+
+  .brand { display: block; padding: 4px 10px 10px; }
+
+  /* เมนูในลิ้นชักต้องกดง่ายด้วยนิ้ว */
+  .nav-link { padding: 11px 12px; font-size: 15px; border-radius: 9px; }
+  .nav-group { margin-top: 14px; display: block; }
+  .nav-group > span { display: block; font-size: 11px; }
+
+  /* ---------- แถบบน ---------- */
+  .topbar {
+    height: calc(56px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) 12px 0;
+    gap: 8px;
+  }
+  .topbar .badge { font-size: 10.5px; padding: 2px 7px; }
+
+  .burger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 17px;
+    cursor: pointer;
+  }
+
+  /* เว้นที่ด้านล่างไม่ให้แถบเมนูทับเนื้อหา */
+  .content {
+    padding: 14px 12px;
+    padding-bottom: calc(78px + env(safe-area-inset-bottom));
+  }
+
+  /* ---------- ส่วนหัวหน้า ---------- */
+  .page-head { margin-bottom: 14px; gap: 10px; }
+  .page-head h1 { font-size: 19px; }
+  .page-head p { font-size: 12.5px; }
+  .page-head .toolbar { width: 100%; }
+  .page-head .toolbar > .btn { flex: 1; justify-content: center; }
+
+  /* ---------- การ์ดสรุป ---------- */
+  .grid.c4 { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid.c2 { grid-template-columns: 1fr; gap: 10px; }
+
+  .stat { padding: 12px; }
+  .stat .value { font-size: 20px; }
+  .stat .label { font-size: 11.5px; }
+  .stat .sub { font-size: 10.5px; }
+
+  .card-head { padding: 12px; font-size: 13.5px; flex-wrap: wrap; }
+  .card-body { padding: 12px; }
+
+  /* ---------- ตารางข้อมูล พลิกเป็นการ์ดทีละแถว ----------
+     ตารางกว้าง ๆ อ่านบนมือถือไม่ได้ ใช้ data-label ในแต่ละช่องเป็นหัวข้อกำกับ */
+  table.tbl.cards,
+  table.tbl.cards tbody { display: block; }
+  table.tbl.cards thead { display: none; }
+
+  table.tbl.cards tr {
+    display: block;
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  table.tbl.cards tr:last-child { border-bottom: none; }
+  table.tbl.cards tbody tr:hover { background: transparent; }
+
+  table.tbl.cards td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 2.5px 0;
+    border: none;
+    font-size: 13.5px;
+    text-align: right;
+  }
+  table.tbl.cards td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    color: var(--text-faint);
+    font-size: 12px;
+    font-weight: 500;
+    text-align: left;
+  }
+  table.tbl.cards td:empty { display: none; }
+
+  /* ช่องแรกทำหน้าที่เป็นหัวข้อของการ์ด */
+  table.tbl.cards td.card-title {
+    display: block;
+    text-align: left;
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+  table.tbl.cards td.card-title::before { content: none; }
+
+  table.tbl.cards tr.total {
+    background: var(--surface-2);
+    border-top: 2px solid var(--border);
+  }
+  table.tbl.cards tr.total td { font-size: 14px; }
+  table.tbl.cards tr.group td {
+    font-weight: 700;
+    display: block;
+    text-align: left;
+  }
+  table.tbl.cards tr.group td::before { content: none; }
+
+  /* ตารางที่ยังต้องเลื่อนแนวนอน ให้บอกผู้ใช้ว่าเลื่อนได้ */
+  .table-wrap { -webkit-overflow-scrolling: touch; }
+  .scroll-hint {
+    display: block;
+    font-size: 11.5px;
+    color: var(--text-faint);
+    padding: 9px 12px 0;
+  }
+
+  /* ---------- ฟอร์ม ----------
+     16px คือขนาดต่ำสุดที่ iOS จะไม่ซูมหน้าจอเข้าเองตอนแตะช่องกรอก */
+  input[type="text"], input[type="date"], input[type="number"],
+  input[type="password"], input[type="email"], select, textarea {
+    font-size: 16px;
+    padding: 10px 12px;
+    min-height: 44px;
+    border-radius: 9px;
+  }
+  input[type="checkbox"] { width: 22px; height: 22px; }
+
+  .field > label { font-size: 13px; margin-bottom: 5px; }
+  .field .hint { font-size: 12px; }
+  .row { flex-direction: column; gap: 0; }
+  .row > * { min-width: 0; width: 100%; }
+
+  .btn { min-height: 44px; padding: 10px 16px; font-size: 14.5px; border-radius: 9px; }
+  .btn.sm { min-height: 36px; padding: 6px 12px; font-size: 13px; }
+
+  /* ---------- ฟอร์มหลายบรรทัด พลิกเป็นการ์ดต่อบรรทัด ---------- */
+  table.tbl.form-cards,
+  table.tbl.form-cards tbody { display: block; }
+  table.tbl.form-cards thead { display: none; }
+
+  table.tbl.form-cards tr {
+    display: block;
+    position: relative;
+    padding: 12px;
+    margin: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: var(--surface-2);
+  }
+  table.tbl.form-cards tbody tr:hover { background: var(--surface-2); }
+
+  table.tbl.form-cards td {
+    display: block;
+    padding: 0 0 10px;
+    border: none;
+  }
+  table.tbl.form-cards td:last-child { padding-bottom: 0; }
+  table.tbl.form-cards td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-dim);
+    margin-bottom: 5px;
+  }
+
+  /* ปุ่มลบบรรทัดวางมุมขวาบนของการ์ด */
+  table.tbl.form-cards td.line-remove {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 0;
+    width: auto;
+  }
+  table.tbl.form-cards td.line-remove::before { content: none; }
+  table.tbl.form-cards td.line-remove .btn { min-height: 34px; padding: 4px 11px; }
+
+  /* ช่องติ๊กเลือก วางคู่กับป้ายในบรรทัดเดียว */
+  table.tbl.form-cards td.line-check {
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-bottom: 8px;
+  }
+  table.tbl.form-cards td.line-check::before {
+    margin-bottom: 0;
+    font-size: 14px;
+    color: var(--text);
+  }
+
+  /* หัวข้อการ์ดในฟอร์มเลือกเอกสาร */
+  table.tbl.form-cards td.card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    padding-bottom: 8px;
+  }
+  table.tbl.form-cards td.card-title::before {
+    font-weight: 500;
+    font-size: 11.5px;
+  }
+
+  /* ช่องที่คำนวณให้ ไม่ใช่ช่องกรอก */
+  table.tbl.form-cards td.computed {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-top: 6px;
+    border-top: 1px dashed var(--border);
+    font-weight: 600;
+  }
+  table.tbl.form-cards td.computed::before { margin-bottom: 0; }
+
+  table.tbl.form-cards tr.total {
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+  table.tbl.form-cards tr.total td {
+    display: flex;
+    justify-content: space-between;
+  }
+  table.tbl.form-cards tr.total td::before { margin-bottom: 0; }
+
+  /* สรุปยอดท้ายฟอร์มให้เต็มความกว้าง */
+  .totals-box { max-width: none !important; margin-left: 0 !important; }
+
+  /* ---------- แถบปุ่มยืนยันลอยเหนือแถบเมนู ----------
+     ใช้ fixed ไม่ใช่ sticky เพราะ sticky จะเกาะเฉพาะตอนกล่องแม่เข้ามาในจอ
+     ทำให้ปุ่มบันทึกยังอยู่นอกจอจนกว่าจะเลื่อนลงสุด ซึ่งไม่ใช่สิ่งที่ต้องการ */
+  .form-actions {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(56px + env(safe-area-inset-bottom));
+    margin: 0;
+    padding: 10px 12px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.07);
+    display: flex;
+    gap: 10px;
+    z-index: 45;
+  }
+  .form-actions > .btn { flex: 1; justify-content: center; }
+  .form-actions > .btn.primary { flex: 2; }
+
+  /* เว้นที่ด้านล่างเพิ่มเมื่อหน้านั้นมีแถบปุ่ม ไม่ให้บังเนื้อหาส่วนท้าย */
+  body:has(.form-actions) .content {
+    padding-bottom: calc(140px + env(safe-area-inset-bottom));
+  }
+
+  /* ---------- แถบเมนูล่าง ---------- */
+  .tabbar {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .tabbar a {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 8px 2px 7px;
+    min-height: 56px;
+    color: var(--text-faint);
+    font-size: 10.5px;
+    font-weight: 500;
+    text-decoration: none;
+  }
+  .tabbar a:hover { text-decoration: none; }
+  .tabbar a .ico { font-size: 17px; line-height: 1; }
+  .tabbar a.active { color: var(--accent); }
+
+  /* ---------- หน้าเข้าสู่ระบบ ---------- */
+  .auth-wrap { padding: 16px; align-items: flex-start; padding-top: 28px; }
+  .auth-card { padding: 20px; border-radius: 13px; }
+  .auth-brand h1 { font-size: 18px; }
+  .auth-brand p { font-size: 11.5px; }
+  .demo-box table.tbl td { padding: 9px 6px !important; font-size: 13px; }
+
+  /* ---------- เมนูผู้ใช้ ---------- */
+  .usermenu-name { display: none; }
+  .usermenu-panel { min-width: 225px; }
+  .usermenu-item { padding: 12px; font-size: 14.5px; }
+
+  .alert { font-size: 13.5px; padding: 12px; }
+  .empty { padding: 28px 16px; }
+}
+
+/* จอเล็กมาก เช่น iPhone SE */
+@media (max-width: 380px) {
+  .grid.c4 { grid-template-columns: 1fr; }
+  .tabbar a { font-size: 9.5px; }
+  .content { padding-left: 10px; padding-right: 10px; }
+  .form-actions { margin-left: -10px; margin-right: -10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar { transition: none; }
+  .drawer-backdrop { animation: none; }
+}
+
+/* ---------- สั่งพิมพ์ ---------- */
+@media print {
+  .sidebar, .topbar, .tabbar, .form-actions,
+  .page-head .toolbar, .drawer-backdrop { display: none !important; }
+  .content { padding: 0; max-width: none; }
+  .card { border: none; box-shadow: none; page-break-inside: avoid; }
+  table.tbl th { background: transparent; }
+}

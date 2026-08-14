@@ -1,0 +1,17 @@
+# ส่วนเสริมสำหรับ "ชุดสาธิต" — เติมผู้ใช้ทดลองและข้อมูลตัวอย่างเข้าไป
+#
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+#
+# ใช้กับฐานข้อมูลที่ยังไม่เคยสร้างเท่านั้น (ถ้ามีข้อมูลแล้วให้ down -v ก่อน)
+# ห้ามใช้ไฟล์นี้กับข้อมูลจริงของกิจการเด็ดขาด
+
+services:
+  db:
+    volumes:
+      - ./db/seed_demo_users.sql:/docker-entrypoint-initdb.d/05_demo_users.sql:ro
+      - ./db/sample_data.sql:/docker-entrypoint-initdb.d/06_sample_data.sql:ro
+
+  web:
+    environment:
+      # แสดงรายชื่อบัญชีทดลองพร้อมปุ่มกรอกให้ในหน้าเข้าสู่ระบบ
+      DEMO_MODE: "true"
