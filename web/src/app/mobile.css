@@ -346,6 +346,47 @@
 
   .alert { font-size: 13.5px; padding: 12px; }
   .empty { padding: 28px 16px; }
+
+  /* ---------- ช่องเลือกที่พิมพ์ค้นหาได้ ----------
+     นิ้วแตะต้องได้พื้นที่พอ และรายการต้องไม่สูงจนดันแป้นพิมพ์ตกจอ */
+  .combo-list { max-height: 45vh; padding: 5px; }
+  .combo-opt { padding: 11px 10px; font-size: 15px; min-height: 44px; align-items: center; }
+  .combo-opt-hint { font-size: 12.5px; }
+  .combo-caret { right: 12px; }
+  .combo-input { padding-right: 30px !important; }
+
+  /* ---------- ปุ่มแบบเลือกอย่างใดอย่างหนึ่ง ---------- */
+  .seg { width: 100%; }
+  .seg button { flex: 1; padding: 10px 8px; font-size: 14.5px; min-height: 44px; }
+
+  /* ---------- แถบยอดรวมติดขอบล่าง ----------
+     ด้านล่างมีของซ้อนกันสามชั้น จากล่างขึ้นบน
+     แถบเมนู 56px → แถบปุ่มบันทึก ~60px → แถบยอดรวมนี้
+     บนจอแคบเหลือแค่ยอดรวมทั้งสิ้นพอ รายละเอียดย่อยดูในการ์ดด้านบนได้ */
+  .sticky-total {
+    position: fixed;
+    left: 0; right: 0;
+    /* แถบเมนู 56 + แถบปุ่มบันทึกสูงราว 65 + เว้นอีกนิด */
+    bottom: calc(126px + env(safe-area-inset-bottom));
+    padding: 8px 12px;
+    justify-content: space-between;
+    gap: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .sticky-total .st-item { font-size: 12px; }
+  .sticky-total .st-item:not(.grand):not(.keep) { display: none; }
+  .sticky-total .st-item.grand .val { font-size: 16px; }
+
+  /* เว้นที่ท้ายหน้าเพิ่ม เมื่อมีทั้งแถบยอดรวมและแถบปุ่ม */
+  body:has(.sticky-total):has(.form-actions) .content {
+    padding-bottom: calc(190px + env(safe-area-inset-bottom));
+  }
+
+  .explain > summary { font-size: 13px; padding: 7px 12px; }
+  .explain .explain-body { font-size: 13.5px; }
+
+  /* คีย์ลัดใช้ได้เฉพาะคีย์บอร์ด ไม่ต้องแสดงบนมือถือ */
+  .keyhints { display: none; }
 }
 
 /* จอเล็กมาก เช่น iPhone SE */

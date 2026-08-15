@@ -440,3 +440,99 @@ input.num, td input.num { text-align: right; font-family: var(--mono); font-vari
   overflow-x: auto; white-space: pre; margin: 10px 0;
 }
 textarea { min-height: 120px; font-family: var(--mono); font-size: 12.5px; }
+
+/* ---------- ช่องเลือกที่พิมพ์ค้นหาได้ (Combo) ---------- */
+.combo { position: relative; }
+.combo-input { width: 100%; padding-right: 26px !important; }
+.combo-input.is-open { border-color: var(--accent); }
+.combo-caret {
+  position: absolute; right: 9px; top: 50%; transform: translateY(-50%);
+  font-size: 10px; color: var(--text-faint); pointer-events: none;
+}
+.combo-list {
+  position: absolute; z-index: 40; left: 0; right: 0; top: calc(100% + 3px);
+  margin: 0; padding: 4px; list-style: none;
+  max-height: 260px; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: 0 6px 20px rgba(16, 24, 40, 0.14);
+}
+.combo-opt {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 6px 9px; border-radius: 6px; cursor: pointer; font-size: 13.5px;
+}
+.combo-opt-label { flex: 1; min-width: 0; }
+.combo-opt-hint {
+  flex: 0 0 auto; font-size: 11.5px; color: var(--text-faint);
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+}
+.combo-opt.is-active { background: var(--accent-soft); }
+.combo-opt.is-current { font-weight: 600; }
+.combo-opt.is-current::after { content: '✓'; color: var(--accent); font-size: 12px; }
+.combo-empty { padding: 10px; font-size: 13px; color: var(--text-faint); text-align: center; }
+
+/* ---------- ปุ่มแบบเลือกอย่างใดอย่างหนึ่ง (segmented) ---------- */
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.seg button {
+  border: 0; background: var(--surface); color: var(--text-dim);
+  padding: 6px 11px; font-size: 13px; font-family: inherit; cursor: pointer;
+  border-right: 1px solid var(--border); white-space: nowrap;
+}
+.seg button:last-child { border-right: 0; }
+.seg button:hover { background: var(--surface-2); }
+.seg button.on { background: var(--accent); color: #fff; font-weight: 600; }
+.seg button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ---------- แถบยอดรวมที่ติดขอบล่าง ---------- */
+.sticky-total {
+  position: sticky; bottom: 0; z-index: 20;
+  background: var(--surface); border-top: 2px solid var(--border);
+  padding: 10px 14px;
+  display: flex; align-items: center; justify-content: flex-end; gap: 18px;
+  flex-wrap: wrap;
+  box-shadow: 0 -3px 12px rgba(16, 24, 40, 0.07);
+}
+.sticky-total .st-item { display: flex; align-items: baseline; gap: 7px; font-size: 12.5px; }
+.sticky-total .st-item .lbl { color: var(--text-dim); }
+.sticky-total .st-item .val {
+  font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 13.5px;
+}
+.sticky-total .st-item.grand .lbl { font-weight: 600; color: var(--text); }
+.sticky-total .st-item.grand .val { font-size: 17px; font-weight: 700; }
+.sticky-total .st-item.bad .val { color: var(--danger); }
+.sticky-total .st-item.good .val { color: var(--ok); }
+
+/* ---------- กล่องคำอธิบายที่ย่อเก็บได้ ---------- */
+.explain { margin-bottom: 14px; }
+.explain > summary {
+  cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; color: var(--text-dim);
+  padding: 4px 9px; border: 1px dashed var(--border); border-radius: 999px;
+}
+.explain > summary::-webkit-details-marker { display: none; }
+.explain > summary:hover { background: var(--surface-2); color: var(--text); }
+.explain[open] > summary { margin-bottom: 8px; }
+.explain .explain-body {
+  font-size: 13px; line-height: 1.65;
+  padding: 11px 14px; border-radius: 8px;
+  background: var(--accent-soft); color: var(--text);
+}
+
+/* ---------- แผงคีย์ลัด ---------- */
+.keyhints {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  font-size: 11.5px; color: var(--text-faint); margin-top: 10px;
+}
+.keyhints kbd {
+  font-family: var(--mono); font-size: 11px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; color: var(--text-dim);
+}
+
+/* ช่องกรอกอัตราภาษีเอง กรณีไม่ใช่ 7% หรือ 0% */
+.vat-custom { display: flex; gap: 6px; align-items: center; }
+.vat-custom input { width: 70px; }
+
+/* ปุ่มท้ายบรรทัด คัดลอก/ลบ — ต้องคง display เดิมของ td ไว้ ไม่งั้นคอลัมน์เพี้ยน */
+td.line-remove { white-space: nowrap; }
+td.line-remove .btn + .btn { margin-left: 4px; }
+td.line-remove .btn { padding: 4px 8px; }

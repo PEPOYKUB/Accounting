@@ -1,9 +1,13 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createReceipt } from '@/lib/posting'
 import { toSatang, fromSatang, pct, proportion, baht, thaiDate, today } from '@/lib/money'
+import { WHT_RATES, normRate } from '@/lib/rates'
+import Combo, { type ComboOption } from '@/components/Combo'
+import AmountInput from '@/components/AmountInput'
+import FormShortcuts from '@/components/FormShortcuts'
 
 export type OpenInvoice = {
   id: string
@@ -41,6 +45,18 @@ export default function ReceiptForm({
     [openInvoices, customerId]
   )
 
+  const customerOptions = useMemo<ComboOption[]>(
+    () => customers.map((c) => ({
+      value: c.id, label: c.partner_name, hint: c.partner_code, keywords: c.partner_code,
+    })),
+    [customers]
+  )
+
+  const bankOptions = useMemo<ComboOption[]>(
+    () => banks.map((b) => ({ value: b.id, label: b.label })),
+    [banks]
+  )
+
   const totals = useMemo(() => {
     let gross = 0, wht = 0, vatMove = 0
     for (const inv of invoices) {
@@ -60,13 +76,28 @@ export default function ReceiptForm({
   function toggle(inv: OpenInvoice, on: boolean) {
     setPicked((prev) => {
       const next = { ...prev }
-      if (on) next[inv.id] = { amount: (toSatang(inv.balance_due) / 100).toFixed(2), wht: inv.expected_wht_rate ?? '3' }
+      if (on) next[inv.id] = { amount: (toSatang(inv.balance_due) / 100).toFixed(2), wht: normRate(inv.expected_wht_rate) }
       else delete next[inv.id]
       return next
     })
   }
 
-  function submit() {
+  /* เลือกทุกใบพร้อมกัน — กรณีลูกค้าโอนมาก้อนเดียวปิดหลายใบ ซึ่งเป็นเรื่องปกติมาก */
+  const toggleAll = useCallback((on: boolean) => {
+    setPicked(() => {
+      if (!on) return {}
+      const next: Record<string, { amount: string; wht: string }> = {}
+      for (const inv of invoices) {
+        next[inv.id] = {
+          amount: (toSatang(inv.balance_due) / 100).toFixed(2),
+          wht: normRate(inv.expected_wht_rate),
+        }
+      }
+      return next
+    })
+  }, [invoices])
+
+  const submit = useCallback(() => {
     setError(null)
     const allocations = Object.entries(picked)
       .filter(([, v]) => toSatang(v.amount) > 0)
@@ -87,44 +118,55 @@ export default function ReceiptForm({
       if (res.ok) router.push(`/receipts?created=${encodeURIComponent(res.docNo)}`)
       else setError(res.error)
     })
-  }
+  }, [picked, bankId, customerId, receiptDate, fee, router])
 
   return (
     <>
+      <FormShortcuts onSave={submit} disabled={pending} />
+
       {error && <div className="alert err"><div>{error}</div></div>}
 
-      <div className="alert info">
-        <div>
-          จุดนี้คือจุดที่ <strong>ภาษีขายถึงกำหนดนำส่ง</strong> — ระบบจะโอนพักภาษีขายเข้าภาษีขายตามสัดส่วนที่รับจริง
-          ออกเลขใบกำกับภาษีให้อัตโนมัติ และบันทึกภาษีที่ลูกค้าหักไว้เป็นสินทรัพย์ (1160) เพื่อใช้เครดิตตอนยื่น ภงด.50
+      <details className="explain">
+        <summary>การรับเงินนี้จะลงบัญชีอย่างไร</summary>
+        <div className="explain-body">
+          จุดนี้คือจุดที่ <strong>ภาษีขายถึงกำหนดนำส่ง</strong> ระบบจะโอนพักภาษีขายเข้าภาษีขายตามสัดส่วนที่รับจริง
+          ออกเลขใบกำกับภาษีให้อัตโนมัติ และบันทึกภาษีที่ลูกค้าหักไว้เป็นสินทรัพย์ (1160)
+          เพื่อใช้เครดิตตอนยื่น ภงด.50
         </div>
-      </div>
+      </details>
 
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-body">
           <div className="row">
             <div className="field">
-              <label>ลูกค้า</label>
-              <select value={customerId} onChange={(e) => { setCustomerId(e.target.value); setPicked({}) }}>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>{c.partner_code} — {c.partner_name}</option>
-                ))}
-              </select>
+              <label htmlFor="rcp-customer">ลูกค้า</label>
+              <Combo
+                id="rcp-customer"
+                options={customerOptions}
+                value={customerId}
+                onChange={(v) => { setCustomerId(v); setPicked({}) }}
+                placeholder="พิมพ์ชื่อหรือรหัสลูกค้า"
+                autoFocus
+              />
             </div>
             <div className="field">
-              <label>วันที่รับเงิน</label>
-              <input type="date" value={receiptDate} onChange={(e) => setReceiptDate(e.target.value)} />
+              <label htmlFor="rcp-date">วันที่รับเงิน</label>
+              <input id="rcp-date" type="date" value={receiptDate}
+                onChange={(e) => setReceiptDate(e.target.value)} />
             </div>
             <div className="field">
-              <label>บัญชีที่รับเงิน</label>
-              <select value={bankId} onChange={(e) => setBankId(e.target.value)}>
-                {banks.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
-              </select>
+              <label htmlFor="rcp-bank">บัญชีที่รับเงิน</label>
+              <Combo
+                id="rcp-bank"
+                options={bankOptions}
+                value={bankId}
+                onChange={setBankId}
+                placeholder="เลือกบัญชีธนาคาร"
+              />
             </div>
             <div className="field">
-              <label>ค่าธรรมเนียมโอน</label>
-              <input type="text" inputMode="decimal" className="num" value={fee}
-                onChange={(e) => setFee(e.target.value)} placeholder="0.00" />
+              <label htmlFor="rcp-fee">ค่าธรรมเนียมโอน</label>
+              <AmountInput value={fee} onChange={setFee} ariaLabel="ค่าธรรมเนียมโอน" />
               <div className="hint">ถ้าฝ่ายเรารับภาระ จะลงเป็นค่าธรรมเนียมธนาคาร (5190)</div>
             </div>
           </div>
@@ -132,7 +174,19 @@ export default function ReceiptForm({
       </div>
 
       <div className="card">
-        <div className="card-head">เลือกใบแจ้งหนี้ที่รับชำระ</div>
+        <div className="card-head">
+          เลือกใบแจ้งหนี้ที่รับชำระ
+          {invoices.length > 1 && (
+            <span className="toolbar">
+              <button type="button" className="btn sm" onClick={() => toggleAll(true)}>
+                เลือกทุกใบ
+              </button>
+              <button type="button" className="btn sm" onClick={() => toggleAll(false)}>
+                ล้างที่เลือก
+              </button>
+            </span>
+          )}
+        </div>
         <div className="table-wrap">
           {invoices.length === 0 ? (
             <div className="empty">ลูกค้ารายนี้ไม่มีใบแจ้งหนี้ค้างชำระ</div>
@@ -146,7 +200,7 @@ export default function ReceiptForm({
                   <th>ครบกำหนด</th>
                   <th className="num">ยอดค้าง</th>
                   <th className="num" style={{ width: 140 }}>รับชำระ</th>
-                  <th style={{ width: 90 }}>หัก ณ ที่จ่าย %</th>
+                  <th style={{ minWidth: 165 }}>หัก ณ ที่จ่าย</th>
                   <th className="num">ภาษีถูกหัก</th>
                 </tr>
               </thead>
@@ -167,14 +221,27 @@ export default function ReceiptForm({
                       <td data-label="ครบกำหนด" className="nowrap computed">{thaiDate(inv.due_date)}</td>
                       <td data-label="ยอดค้าง" className="num computed">{baht(inv.balance_due)}</td>
                       <td data-label="รับชำระ">
-                        <input type="text" inputMode="decimal" className="num" disabled={!p}
+                        <AmountInput
                           value={p?.amount ?? ''}
-                          onChange={(e) => setPicked((prev) => ({ ...prev, [inv.id]: { ...prev[inv.id], amount: e.target.value } }))} />
+                          disabled={!p}
+                          ariaLabel={`รับชำระ ${inv.doc_no}`}
+                          onChange={(v) => setPicked((prev) => ({ ...prev, [inv.id]: { ...prev[inv.id], amount: v } }))}
+                        />
+                        {p && applied !== toSatang(inv.balance_due) && (
+                          // รับไม่เต็มจำนวนคือรับบางส่วน ต้องเห็นชัดว่าตั้งใจ ไม่ใช่พิมพ์ผิด
+                          <div className="hint">
+                            รับบางส่วน · เหลือค้าง {baht(fromSatang(toSatang(inv.balance_due) - applied))}
+                          </div>
+                        )}
                       </td>
-                      <td data-label="หัก ณ ที่จ่าย %">
-                        <input type="text" inputMode="decimal" className="num" disabled={!p}
+                      <td data-label="หัก ณ ที่จ่าย">
+                        <Combo
+                          options={WHT_RATES}
                           value={p?.wht ?? ''}
-                          onChange={(e) => setPicked((prev) => ({ ...prev, [inv.id]: { ...prev[inv.id], wht: e.target.value } }))} />
+                          disabled={!p}
+                          placeholder="เลือกอัตรา"
+                          onChange={(v) => setPicked((prev) => ({ ...prev, [inv.id]: { ...prev[inv.id], wht: v } }))}
+                        />
                       </td>
                       <td data-label="ภาษีถูกหัก" className="num muted computed">{p ? baht(fromSatang(whtS)) : '—'}</td>
                     </tr>
@@ -198,13 +265,35 @@ export default function ReceiptForm({
               </tbody>
             </table>
           </div>
-          <div className="toolbar form-actions" style={{ marginTop: 16, justifyContent: 'flex-end' }}>
-            <button type="button" className="btn" onClick={() => router.back()} disabled={pending}>ยกเลิก</button>
-            <button type="button" className="btn primary" onClick={submit} disabled={pending}>
-              {pending ? 'กำลังบันทึกและลงบัญชี…' : 'บันทึกรับเงินและออกใบกำกับภาษี'}
-            </button>
-          </div>
         </div>
+      </div>
+
+      <div className="sticky-total">
+        <div className="st-item keep">
+          <span className="lbl">{Object.keys(picked).length} ใบ</span>
+        </div>
+        <div className="st-item">
+          <span className="lbl">ตัดลูกหนี้</span>
+          <span className="val">{baht(fromSatang(totals.gross))}</span>
+        </div>
+        <div className="st-item grand">
+          <span className="lbl">เงินเข้าบัญชีจริง</span>
+          <span className="val">{baht(fromSatang(totals.net))}</span>
+        </div>
+      </div>
+
+      <div className="toolbar form-actions" style={{ marginTop: 14, justifyContent: 'flex-end' }}>
+        <button type="button" className="btn" onClick={() => router.back()} disabled={pending}>
+          ยกเลิก
+        </button>
+        <button type="button" className="btn primary" onClick={submit} disabled={pending}>
+          {pending ? 'กำลังบันทึกและลงบัญชี…' : 'บันทึกรับเงินและออกใบกำกับภาษี'}
+        </button>
+      </div>
+
+      <div className="keyhints">
+        <span><kbd>Ctrl</kbd>+<kbd>Enter</kbd> บันทึก</span>
+        <span>ติ๊กใบแจ้งหนี้แล้วระบบเติมยอดเต็มให้ แก้เป็นรับบางส่วนได้</span>
       </div>
     </>
   )

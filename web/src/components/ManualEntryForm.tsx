@@ -1,10 +1,13 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createManualEntry } from '@/lib/posting'
 import { toSatang, fromSatang, baht, today } from '@/lib/money'
 import type { Account } from '@/lib/queries'
+import Combo, { type ComboOption } from '@/components/Combo'
+import AmountInput from '@/components/AmountInput'
+import FormShortcuts from '@/components/FormShortcuts'
 
 type Line = { account_code: string; dr: string; cr: string; memo: string }
 
@@ -30,6 +33,26 @@ export default function ManualEntryForm({ accounts }: { accounts: Account[] }) {
   const [source, setSource] = useState<string>('MANUAL')
   const [lines, setLines] = useState<Line[]>([blank(), blank()])
 
+  const accountRefs = useRef<(HTMLInputElement | null)[]>([])
+  const focusLine = useRef<number | null>(null)
+
+  useEffect(() => {
+    const i = focusLine.current
+    if (i == null) return
+    focusLine.current = null
+    accountRefs.current[i]?.focus()
+  }, [lines.length])
+
+  const accountOptions = useMemo<ComboOption[]>(
+    () => accounts.map((a) => ({
+      value: a.account_code,
+      label: a.account_name,
+      hint: a.account_code,
+      keywords: a.account_code,
+    })),
+    [accounts]
+  )
+
   const totals = useMemo(() => {
     const dr = lines.reduce((a, l) => a + toSatang(l.dr), 0)
     const cr = lines.reduce((a, l) => a + toSatang(l.cr), 0)
@@ -40,7 +63,34 @@ export default function ManualEntryForm({ accounts }: { accounts: Account[] }) {
     setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, ...patch } : l)))
   }
 
-  function submit() {
+  const addLine = useCallback(() => {
+    setLines((prev) => {
+      focusLine.current = prev.length
+      return [...prev, blank()]
+    })
+  }, [])
+
+  /*
+    เติมผลต่างให้อัตโนมัติ — ตัวช่วยที่นักบัญชีใช้บ่อยที่สุดตอนคีย์ใบสำคัญ
+    คีย์ขาเดบิตครบแล้วกดปุ่มเดียว ระบบใส่ยอดเครดิตที่ทำให้ลงตัวให้เอง
+    ใส่ลงบรรทัดแรกที่ยังว่างทั้งสองช่อง ถ้าไม่มีก็เปิดบรรทัดใหม่ให้
+  */
+  const fillDifference = useCallback(() => {
+    const diff = totals.diff
+    if (diff === 0) return
+    const amount = fromSatang(Math.abs(diff))
+    const side: 'dr' | 'cr' = diff > 0 ? 'cr' : 'dr'
+
+    setLines((prev) => {
+      const idx = prev.findIndex((l) => !toSatang(l.dr) && !toSatang(l.cr))
+      if (idx >= 0) {
+        return prev.map((l, i) => (i === idx ? { ...l, [side]: amount } : l))
+      }
+      return [...prev, { ...blank(), [side]: amount }]
+    })
+  }, [totals.diff])
+
+  const submit = useCallback(() => {
     setError(null)
     const fd = new FormData()
     fd.set('entry_date', entryDate)
@@ -53,31 +103,35 @@ export default function ManualEntryForm({ accounts }: { accounts: Account[] }) {
       if (res.ok) router.push(`/journal?created=${encodeURIComponent(res.docNo)}`)
       else setError(res.error)
     })
-  }
+  }, [entryDate, description, source, lines, router])
 
   const balanced = totals.diff === 0 && totals.dr > 0
 
   return (
     <>
+      <FormShortcuts onSave={() => { if (balanced) submit() }} onAddLine={addLine} disabled={pending} />
+
       {error && <div className="alert err"><div>{error}</div></div>}
 
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-body">
           <div className="row">
             <div className="field">
-              <label>วันที่</label>
-              <input type="date" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} />
+              <label htmlFor="je-date">วันที่</label>
+              <input id="je-date" type="date" value={entryDate}
+                onChange={(e) => setEntryDate(e.target.value)} />
               <div className="hint">ระบบหางวดบัญชีจากวันที่ให้เอง และปฏิเสธถ้างวดนั้นปิดแล้ว</div>
             </div>
             <div className="field">
-              <label>ประเภทรายการ</label>
-              <select value={source} onChange={(e) => setSource(e.target.value)}>
+              <label htmlFor="je-source">ประเภทรายการ</label>
+              <select id="je-source" value={source} onChange={(e) => setSource(e.target.value)}>
                 {SOURCES.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
             <div className="field" style={{ flex: 2 }}>
-              <label>คำอธิบายรายการ</label>
-              <input type="text" value={description} onChange={(e) => setDescription(e.target.value)}
+              <label htmlFor="je-desc">คำอธิบายรายการ</label>
+              <input id="je-desc" type="text" value={description}
+                onChange={(e) => setDescription(e.target.value)}
                 placeholder="เช่น ปรับปรุงค่าใช้จ่ายค้างจ่ายเดือนสิงหาคม" />
             </div>
           </div>
@@ -87,9 +141,7 @@ export default function ManualEntryForm({ accounts }: { accounts: Account[] }) {
       <div className="card">
         <div className="card-head">
           บรรทัดรายการ
-          <button type="button" className="btn sm" onClick={() => setLines((p) => [...p, blank()])}>
-            + เพิ่มบรรทัด
-          </button>
+          <button type="button" className="btn sm" onClick={addLine}>+ เพิ่มบรรทัด</button>
         </div>
         <div className="table-wrap">
           <table className="tbl form-cards">
@@ -103,37 +155,49 @@ export default function ManualEntryForm({ accounts }: { accounts: Account[] }) {
               </tr>
             </thead>
             <tbody>
-              {lines.map((l, i) => (
-                <tr key={i}>
-                  <td data-label="บัญชี">
-                    <select value={l.account_code} onChange={(e) => update(i, { account_code: e.target.value })}>
-                      <option value="">— เลือกบัญชี —</option>
-                      {accounts.map((a) => (
-                        <option key={a.account_code} value={a.account_code}>
-                          {a.account_code} {a.account_name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td data-label="คำอธิบาย">
-                    <input type="text" value={l.memo} onChange={(e) => update(i, { memo: e.target.value })} />
-                  </td>
-                  <td data-label="เดบิต">
-                    <input type="text" inputMode="decimal" className="num" value={l.dr}
-                      onChange={(e) => update(i, { dr: e.target.value, cr: e.target.value ? '' : l.cr })} />
-                  </td>
-                  <td data-label="เครดิต">
-                    <input type="text" inputMode="decimal" className="num" value={l.cr}
-                      onChange={(e) => update(i, { cr: e.target.value, dr: e.target.value ? '' : l.dr })} />
-                  </td>
-                  <td className="line-remove">
-                    {lines.length > 2 && (
-                      <button type="button" className="btn sm danger"
-                        onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))}>✕</button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {lines.map((l, i) => {
+                const isLast = i === lines.length - 1
+                return (
+                  <tr key={i}>
+                    <td data-label="บัญชี">
+                      <Combo
+                        options={accountOptions}
+                        value={l.account_code}
+                        onChange={(v) => update(i, { account_code: v })}
+                        allowEmpty
+                        emptyLabel="— เลือกบัญชี —"
+                        placeholder="พิมพ์รหัสหรือชื่อบัญชี"
+                        inputRef={(el) => { accountRefs.current[i] = el }}
+                      />
+                    </td>
+                    <td data-label="คำอธิบาย">
+                      <input type="text" value={l.memo}
+                        onChange={(e) => update(i, { memo: e.target.value })} />
+                    </td>
+                    <td data-label="เดบิต">
+                      <AmountInput
+                        value={l.dr}
+                        ariaLabel="เดบิต"
+                        onChange={(v) => update(i, { dr: v, cr: v ? '' : l.cr })}
+                      />
+                    </td>
+                    <td data-label="เครดิต">
+                      <AmountInput
+                        value={l.cr}
+                        ariaLabel="เครดิต"
+                        onChange={(v) => update(i, { cr: v, dr: v ? '' : l.dr })}
+                        onEnter={isLast ? addLine : undefined}
+                      />
+                    </td>
+                    <td className="line-remove">
+                      {lines.length > 2 && (
+                        <button type="button" className="btn sm danger" title="ลบบรรทัดนี้"
+                          onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))}>✕</button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
               <tr className="total">
                 <td colSpan={2}>รวม</td>
                 <td className="num">{baht(fromSatang(totals.dr))}</td>
@@ -143,26 +207,49 @@ export default function ManualEntryForm({ accounts }: { accounts: Account[] }) {
             </tbody>
           </table>
         </div>
+      </div>
 
-        <div className="card-body" style={{ borderTop: '1px solid var(--border)' }}>
-          {totals.diff !== 0 ? (
-            <div className="alert err" style={{ marginBottom: 12 }}>
-              <div>เดบิตไม่เท่ากับเครดิต ผลต่าง {baht(fromSatang(Math.abs(totals.diff)))} บาท — ระบบจะไม่ยอมบันทึก</div>
-            </div>
-          ) : (
-            totals.dr > 0 && (
-              <div className="alert ok" style={{ marginBottom: 12 }}>
-                <div>เดบิตเท่ากับเครดิต พร้อมลงบัญชี</div>
-              </div>
-            )
-          )}
-          <div className="toolbar form-actions" style={{ justifyContent: 'flex-end' }}>
-            <button type="button" className="btn" onClick={() => router.back()} disabled={pending}>ยกเลิก</button>
-            <button type="button" className="btn primary" onClick={submit} disabled={pending || !balanced}>
-              {pending ? 'กำลังลงบัญชี…' : 'ลงบัญชี'}
+      {/* สถานะสมดุลต้องเห็นตลอดเวลา ไม่ใช่ต้องเลื่อนหา
+          เพราะเป็นเงื่อนไขเดียวที่ตัดสินว่าบันทึกได้หรือไม่ */}
+      <div className="sticky-total">
+        <div className="st-item">
+          <span className="lbl">เดบิต</span>
+          <span className="val">{baht(fromSatang(totals.dr))}</span>
+        </div>
+        <div className="st-item">
+          <span className="lbl">เครดิต</span>
+          <span className="val">{baht(fromSatang(totals.cr))}</span>
+        </div>
+        {totals.diff === 0 ? (
+          <div className="st-item grand good keep">
+            <span className="lbl">สถานะ</span>
+            <span className="val">{totals.dr > 0 ? '✓ สมดุล' : 'ยังไม่มียอด'}</span>
+          </div>
+        ) : (
+          <div className="st-item grand bad keep">
+            <span className="lbl">ผลต่าง</span>
+            <span className="val">{baht(fromSatang(Math.abs(totals.diff)))}</span>
+            <button type="button" className="btn sm" onClick={fillDifference}
+              title="ใส่ยอดที่ทำให้เดบิตเท่ากับเครดิต">
+              เติมให้ลงตัว
             </button>
           </div>
-        </div>
+        )}
+      </div>
+
+      <div className="toolbar form-actions" style={{ marginTop: 14, justifyContent: 'flex-end' }}>
+        <button type="button" className="btn" onClick={() => router.back()} disabled={pending}>
+          ยกเลิก
+        </button>
+        <button type="button" className="btn primary" onClick={submit} disabled={pending || !balanced}>
+          {pending ? 'กำลังลงบัญชี…' : 'ลงบัญชี'}
+        </button>
+      </div>
+
+      <div className="keyhints">
+        <span><kbd>Enter</kbd> ที่ช่องเครดิตบรรทัดสุดท้าย = เพิ่มบรรทัด</span>
+        <span><kbd>Ctrl</kbd>+<kbd>Enter</kbd> ลงบัญชี</span>
+        <span><kbd>Alt</kbd>+<kbd>N</kbd> เพิ่มบรรทัด</span>
       </div>
     </>
   )

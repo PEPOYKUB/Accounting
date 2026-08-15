@@ -1,9 +1,12 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createPayment } from '@/lib/posting'
 import { toSatang, fromSatang, pct, proportion, baht, thaiDate, today } from '@/lib/money'
+import Combo, { type ComboOption } from '@/components/Combo'
+import AmountInput from '@/components/AmountInput'
+import FormShortcuts from '@/components/FormShortcuts'
 
 export type OpenBill = {
   id: string
@@ -39,6 +42,18 @@ export default function PaymentForm({
 
   const bills = useMemo(() => openBills.filter((b) => b.vendor_id === vendorId), [openBills, vendorId])
 
+  const vendorOptions = useMemo<ComboOption[]>(
+    () => vendors.map((v) => ({
+      value: v.id, label: v.partner_name, hint: v.partner_code, keywords: v.partner_code,
+    })),
+    [vendors]
+  )
+
+  const bankOptions = useMemo<ComboOption[]>(
+    () => banks.map((b) => ({ value: b.id, label: b.label })),
+    [banks]
+  )
+
   const totals = useMemo(() => {
     let gross = 0, wht = 0, vatMove = 0
     for (const b of bills) {
@@ -63,7 +78,17 @@ export default function PaymentForm({
     })
   }
 
-  function submit() {
+  /* จ่ายทีเดียวหลายใบเป็นเรื่องปกติของรอบจ่ายสิ้นเดือน */
+  const toggleAll = useCallback((on: boolean) => {
+    setPicked(() => {
+      if (!on) return {}
+      const next: Record<string, string> = {}
+      for (const b of bills) next[b.id] = (toSatang(b.balance_due) / 100).toFixed(2)
+      return next
+    })
+  }, [bills])
+
+  const submit = useCallback(() => {
     setError(null)
     const allocations = Object.entries(picked)
       .filter(([, v]) => toSatang(v) > 0)
@@ -83,46 +108,66 @@ export default function PaymentForm({
       if (res.ok) router.push(`/payments?created=${encodeURIComponent(res.docNo)}`)
       else setError(res.error)
     })
-  }
+  }, [picked, bankId, vendorId, paymentDate, router])
 
   return (
     <>
+      <FormShortcuts onSave={submit} disabled={pending} />
+
       {error && <div className="alert err"><div>{error}</div></div>}
 
-      <div className="alert info">
-        <div>
+      <details className="explain">
+        <summary>การจ่ายเงินนี้จะลงบัญชีอย่างไร</summary>
+        <div className="explain-body">
           ระบบจะหักภาษี ณ ที่จ่ายจาก<strong>ฐานก่อนภาษีมูลค่าเพิ่ม</strong>ตามอัตราที่ตั้งไว้ในใบตั้งหนี้
-          ออกหนังสือรับรองหัก ณ ที่จ่ายให้อัตโนมัติ และโอนพักภาษีซื้อเข้าภาษีซื้อสำหรับใบที่รอใบกำกับภาษี
+          ออกหนังสือรับรองหัก ณ ที่จ่ายให้อัตโนมัติ
+          และโอนพักภาษีซื้อเข้าภาษีซื้อสำหรับใบที่รอใบกำกับภาษี
         </div>
-      </div>
+      </details>
 
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-body">
           <div className="row">
             <div className="field">
-              <label>ผู้ขาย</label>
-              <select value={vendorId} onChange={(e) => { setVendorId(e.target.value); setPicked({}) }}>
-                {vendors.map((v) => (
-                  <option key={v.id} value={v.id}>{v.partner_code} — {v.partner_name}</option>
-                ))}
-              </select>
+              <label htmlFor="pay-vendor">ผู้ขาย</label>
+              <Combo
+                id="pay-vendor"
+                options={vendorOptions}
+                value={vendorId}
+                onChange={(v) => { setVendorId(v); setPicked({}) }}
+                placeholder="พิมพ์ชื่อหรือรหัสผู้ขาย"
+                autoFocus
+              />
             </div>
             <div className="field">
-              <label>วันที่จ่ายเงิน</label>
-              <input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
+              <label htmlFor="pay-date">วันที่จ่ายเงิน</label>
+              <input id="pay-date" type="date" value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)} />
             </div>
             <div className="field">
-              <label>บัญชีที่จ่ายเงิน</label>
-              <select value={bankId} onChange={(e) => setBankId(e.target.value)}>
-                {banks.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
-              </select>
+              <label htmlFor="pay-bank">บัญชีที่จ่ายเงิน</label>
+              <Combo
+                id="pay-bank"
+                options={bankOptions}
+                value={bankId}
+                onChange={setBankId}
+                placeholder="เลือกบัญชีธนาคาร"
+              />
             </div>
           </div>
         </div>
       </div>
 
       <div className="card">
-        <div className="card-head">เลือกใบตั้งหนี้ที่จะจ่าย</div>
+        <div className="card-head">
+          เลือกใบตั้งหนี้ที่จะจ่าย
+          {bills.length > 1 && (
+            <span className="toolbar">
+              <button type="button" className="btn sm" onClick={() => toggleAll(true)}>เลือกทุกใบ</button>
+              <button type="button" className="btn sm" onClick={() => toggleAll(false)}>ล้างที่เลือก</button>
+            </span>
+          )}
+        </div>
         <div className="table-wrap">
           {bills.length === 0 ? (
             <div className="empty">ผู้ขายรายนี้ไม่มีใบตั้งหนี้ค้างจ่าย</div>
@@ -157,9 +202,17 @@ export default function PaymentForm({
                       <td data-label="ครบกำหนด" className="nowrap computed">{thaiDate(b.due_date)}</td>
                       <td data-label="ยอดค้าง" className="num computed">{baht(b.balance_due)}</td>
                       <td data-label="จำนวนที่จ่าย">
-                        <input type="text" inputMode="decimal" className="num" disabled={amount === undefined}
+                        <AmountInput
                           value={amount ?? ''}
-                          onChange={(e) => setPicked((prev) => ({ ...prev, [b.id]: e.target.value }))} />
+                          disabled={amount === undefined}
+                          ariaLabel={`จำนวนที่จ่าย ${b.doc_no}`}
+                          onChange={(v) => setPicked((prev) => ({ ...prev, [b.id]: v }))}
+                        />
+                        {amount !== undefined && applied !== toSatang(b.balance_due) && (
+                          <div className="hint">
+                            จ่ายบางส่วน · เหลือค้าง {baht(fromSatang(toSatang(b.balance_due) - applied))}
+                          </div>
+                        )}
                       </td>
                       <td data-label="หัก ณ ที่จ่าย" className="num muted computed">
                         {amount !== undefined ? `${baht(fromSatang(whtS))} (${b.wht_rate ?? 0}%)` : '—'}
@@ -187,13 +240,35 @@ export default function PaymentForm({
               </tbody>
             </table>
           </div>
-          <div className="toolbar form-actions" style={{ marginTop: 16, justifyContent: 'flex-end' }}>
-            <button type="button" className="btn" onClick={() => router.back()} disabled={pending}>ยกเลิก</button>
-            <button type="button" className="btn primary" onClick={submit} disabled={pending}>
-              {pending ? 'กำลังบันทึกและลงบัญชี…' : 'บันทึกจ่ายเงินและออกหนังสือรับรอง'}
-            </button>
-          </div>
         </div>
+      </div>
+
+      <div className="sticky-total">
+        <div className="st-item keep">
+          <span className="lbl">{Object.keys(picked).length} ใบ</span>
+        </div>
+        <div className="st-item">
+          <span className="lbl">ตัดเจ้าหนี้</span>
+          <span className="val">{baht(fromSatang(totals.gross))}</span>
+        </div>
+        <div className="st-item grand">
+          <span className="lbl">เงินจ่ายจริง</span>
+          <span className="val">{baht(fromSatang(totals.net))}</span>
+        </div>
+      </div>
+
+      <div className="toolbar form-actions" style={{ marginTop: 14, justifyContent: 'flex-end' }}>
+        <button type="button" className="btn" onClick={() => router.back()} disabled={pending}>
+          ยกเลิก
+        </button>
+        <button type="button" className="btn primary" onClick={submit} disabled={pending}>
+          {pending ? 'กำลังบันทึกและลงบัญชี…' : 'บันทึกจ่ายเงินและออกหนังสือรับรอง'}
+        </button>
+      </div>
+
+      <div className="keyhints">
+        <span><kbd>Ctrl</kbd>+<kbd>Enter</kbd> บันทึก</span>
+        <span>อัตราหัก ณ ที่จ่ายมาจากใบตั้งหนี้ แก้ที่ใบตั้งหนี้ถ้าไม่ถูก</span>
       </div>
     </>
   )
